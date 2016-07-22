@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Lime
 # @Date:   2013-10-28 13:39:48
-# @Last Modified by:   Lime
-# @Last Modified time: 2016-03-06 10:23:52
+# @Last Modified by:   pospi
+# @Last Modified time: 2016-07-22
 
 import os
 import sys
@@ -91,10 +91,20 @@ def Window():
     return sublime.active_window()
 
 
-def Settings():
+def get_setting(key, default = None):
     '''Get settings'''
+    value = sublime.load_settings('%s.sublime-settings' % PLUGIN_NAME).get(key)
+    projectOverride = None
 
-    return sublime.load_settings('%s.sublime-settings' % PLUGIN_NAME)
+    # Load override from project settings if present
+    project_settings = Window().active_view().settings()
+    if project_settings.has(PLUGIN_NAME):
+        projectOverride = project_settings.get(PLUGIN_NAME).get(key)
+
+    if value is None and projectOverride is None:
+        return default
+
+    return value if projectOverride is None else projectOverride
 
 
 def get_template_part(syntax_type, part):
@@ -104,7 +114,7 @@ def get_template_part(syntax_type, part):
     tmplate_path = os.path.join(
         HEADER_PATH if part == 'header' else BODY_PATH, template_name)
 
-    custom_template_path = Settings().get('custom_template_%s_path' % part)
+    custom_template_path = get_setting('custom_template_%s_path' % part)
     if custom_template_path:
         path = os.path.abspath(os.path.expanduser(os.path.expandvars(
             os.path.join(custom_template_path, template_name))))
@@ -132,11 +142,11 @@ def get_strftime():
 
     _ = ['%Y-%m-%d %H:%M:%S', '%Y-%m-%d', '%H:%M:%S']
 
-    format = Settings().get('custom_time_format')
+    format = get_setting('custom_time_format')
 
     if not format:
         try:
-            format = _[Settings().get('time_format')]
+            format = _[get_setting('time_format')]
         except IndexError:
             format = _[0]
 
@@ -237,8 +247,8 @@ def get_args(syntax_type, options={}):
 
         return c_time, m_time
 
-    args = Settings().get('Default')
-    args.update(Settings().get(syntax_type, {}))
+    args = get_setting('Default')
+    args.update(get_setting(syntax_type, {}))
 
     format = get_strftime()
     c_time, m_time = get_st3_time() if IS_ST3 else get_st2_time()
@@ -284,9 +294,9 @@ def render_template(syntax_type, part=None, options={}):
 def get_syntax_type(name):
     '''Judge `syntax_type` according to to `name`'''
 
-    syntax_type = Settings().get('syntax_when_not_match')
-    file_suffix_mapping = Settings().get('file_suffix_mapping')
-    extension_equivalence = Settings().get('extension_equivalence')
+    syntax_type = get_setting('syntax_when_not_match')
+    file_suffix_mapping = get_setting('file_suffix_mapping')
+    extension_equivalence = get_setting('extension_equivalence')
 
     if name is not None:
         name = name.split('.')
@@ -488,7 +498,7 @@ class FileHeaderAddHeaderCommand(sublime_plugin.WindowCommand):
             return False
 
         enable_add_to_hidden_dir, enable_add_to_hidden_file = map(
-            Settings().get, (
+            get_setting, (
                 'enable_add_header_to_hidden_dir',
                 'enable_add_header_to_hidden_file'
             )
@@ -507,7 +517,7 @@ class FileHeaderAddHeaderCommand(sublime_plugin.WindowCommand):
     def add(self, path):
         '''Add to a file'''
 
-        whether_open_file = Settings().get(
+        whether_open_file = get_setting(
             'open_file_when_add_header_to_directory')
 
         if whether_open_file:
@@ -552,7 +562,7 @@ class FileHeaderAddHeaderCommand(sublime_plugin.WindowCommand):
             except:
                 pass
 
-        show_input_panel_when_add_header = Settings().get(
+        show_input_panel_when_add_header = get_setting(
             'show_input_panel_when_add_header')
 
         if not show_input_panel_when_add_header:
@@ -643,7 +653,7 @@ class FileHeaderListener(sublime_plugin.EventListener):
                         {'a': a, 'b': b, 'strings': strings})
 
     def insert_template(self, view, exists):
-        enable_add_template_to_empty_file = Settings().get(
+        enable_add_template_to_empty_file = get_setting(
             'enable_add_template_to_empty_file') and view.settings().get(
             'enable_add_template_to_empty_file', True)
 
